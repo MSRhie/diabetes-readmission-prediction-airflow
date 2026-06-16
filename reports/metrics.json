@@ -1,0 +1,7 @@
+{
+  "AUC": 0.6646,
+  "Precision_class1": 0.1479,
+  "Recall_class1": 0.4766,
+  "F1_class1": 0.2257,
+  "Accuracy": 0.7122
+}
