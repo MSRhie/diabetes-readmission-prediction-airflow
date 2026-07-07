@@ -8,7 +8,6 @@ import pickle
 import os
 import logging
 from sklearn.model_selection import train_test_split
-from sklearn.utils.class_weight import compute_sample_weight
 from xgboost import XGBClassifier
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -34,21 +33,35 @@ def split_data(df: pd.DataFrame, test_size: float = 0.2, random_state: int = 42)
 
 
 def train_model(X_train, y_train) -> XGBClassifier:
-    """XGBoost 학습 (클래스 불균형 처리 포함)"""
-    sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
+    """XGBoost 학습 (클래스 불균형 처리 포함)
+
+    원본 분석(diabetes-readmission-prediction)과 동일하게
+    scale_pos_weight로 클래스 불균형을 처리한다.
+    scale = 비재입원 수 / 재입원 수
+    RandomizedSearchCV 튜닝 결과(learning_rate=0.01, max_depth=7,
+    subsample=0.6, colsample_bytree=0.7, min_child_weight=20)를 그대로 사용한다.
+    """
+    scale = y_train.value_counts()[0] / y_train.value_counts()[1]
+    logger.info(f"scale_pos_weight: {scale:.4f}")
 
     model = XGBClassifier(
-        n_estimators=300,
-        max_depth=6,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        use_label_encoder=False,
-        eval_metric="logloss",
+        n_estimators=1000,
+        early_stopping_rounds=50,
+        learning_rate=0.01,
+        max_depth=7,
+        subsample=0.6,
+        colsample_bytree=0.7,
+        min_child_weight=20,
+        scale_pos_weight=scale,
+        eval_metric="auc",
         random_state=42,
         n_jobs=-1,
     )
-    model.fit(X_train, y_train, sample_weight=sample_weights)
+    model.fit(
+        X_train, y_train,
+        eval_set=[(X_train, y_train)],
+        verbose=False,
+    )
     logger.info("모델 학습 완료")
     return model
 
